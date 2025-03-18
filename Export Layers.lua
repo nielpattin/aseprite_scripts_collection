@@ -27,7 +27,7 @@ local function timeOperation(operationType, func, ...)
   return result
 end
 
--- (Optional) Calculate bounding box for trimming; if enabled, we'll trim the cel image.
+-- Calculate bounding box for trimming; if enabled, we'll trim the cel image.
 local function calculateBoundingBox(image)
   local minX, minY, maxX, maxY = nil, nil, nil, nil
   for y = 0, image.height - 1 do
@@ -130,6 +130,11 @@ dlg:check{
   label = "Create subfolders for groups",
   selected = true,
 }
+dlg:check{
+  id = "export_selected_only",
+  label = "Export selected layer only",
+  selected = false,
+}
 dlg:combobox{
   id = "ignoreChar",
   label = "Ignore layers starting with:",
@@ -153,7 +158,8 @@ end
 local options = {
   trim = dlg.data.trim,
   includeGroup = dlg.data.include_group,
-  ignoreChar = dlg.data.ignoreChar,  -- Add the ignore character option
+  ignoreChar = dlg.data.ignoreChar,
+  exportSelectedOnly = dlg.data.export_selected_only,
 }
 
 local selected_path = dlg.data.output
@@ -171,9 +177,25 @@ end
 -- Create the base folder if it doesn't exist
 app.fs.makeAllDirectories(output_dir)
 
--- Export all layers recursively.
+-- Export layers based on options
 local startExportTime = os.clock()
-exportLayers(sprite, output_dir, frame, options)
+
+if options.exportSelectedOnly and app.activeLayer then
+  local activeLayer = app.activeLayer
+  if activeLayer.isGroup then
+    -- For group layers, create a subfolder and export its children
+    local groupPath = output_dir .. Sep .. activeLayer.name
+    app.fs.makeAllDirectories(groupPath)
+    exportLayers(activeLayer, groupPath, frame, options)
+  else
+    -- For regular layers, export directly
+    exportLayer(activeLayer, output_dir, frame, options)
+  end
+else
+  -- Export all layers recursively
+  exportLayers(sprite, output_dir, frame, options)
+end
+
 timing.export = os.clock() - startExportTime
 
 app.alert{
