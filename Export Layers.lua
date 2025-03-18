@@ -1,4 +1,4 @@
--- Check for active sprite
+--Check for active sprite
 local sprite = app.activeSprite
 if not sprite then
   app.alert("No active sprite. Open a sprite first.")
@@ -8,9 +8,24 @@ end
 local Sep = package.config:sub(1,1)
 local frame = app.activeFrame or 1
 
+-- Timing variables
+local timing = {
+  saveAs = 0,
+  export = 0
+}
+
 -- Utility: get directory from a file path
 local function Dirname(path)
   return path:match("(.*" .. Sep .. ")") or ""
+end
+
+-- Utility: time a function execution
+local function timeOperation(operationType, func, ...)
+  local startTime = os.clock()
+  local result = func(...)
+  local elapsed = os.clock() - startTime
+  timing[operationType] = timing[operationType] + elapsed
+  return result
 end
 
 -- (Optional) Calculate bounding box for trimming; if enabled, we'll trim the cel image.
@@ -51,7 +66,7 @@ local function exportLayer(layer, currentPath, frame, options)
         cel.image,
         -bbox.x, -bbox.y  -- shift so that bbox.x,y becomes (0,0)
       )
-      trimmed:saveAs(fileName)
+      timeOperation("saveAs", function() trimmed:saveAs(fileName) end)
       n_layers = n_layers + 1
       return
     end
@@ -66,7 +81,7 @@ local function exportLayer(layer, currentPath, frame, options)
     cel.position.x, cel.position.y,
     { blendMode = layer.blendMode, opacity = layer.opacity / 255.0 }
   )
-  new_image:saveAs(fileName)
+  timeOperation("saveAs", function() new_image:saveAs(fileName) end)
   n_layers = n_layers + 1
 end
 
@@ -76,7 +91,7 @@ local function exportLayers(layerContainer, currentPath, frame, options)
   for _, layer in ipairs(layerContainer.layers) do
     if layer.isGroup then
       local newPath = currentPath .. Sep .. layer.name
-      os.execute("mkdir \"" .. newPath .. "\"")
+      app.fs.makeAllDirectories(newPath)
       exportLayers(layer, newPath, frame, options)
     else
       exportLayer(layer, currentPath, frame, options)
@@ -138,9 +153,17 @@ if output_dir == "" then
 end
 
 -- Create the base folder if it doesn't exist
-os.execute("mkdir \"" .. output_dir .. "\"")
+app.fs.makeAllDirectories(output_dir)
 
 -- Export all layers recursively.
+local startExportTime = os.clock()
 exportLayers(sprite, output_dir, frame, options)
+timing.export = os.clock() - startExportTime
 
-app.alert("Export complete: " .. n_layers .. " layer(s) exported.")
+app.alert{
+  title="Export Complete", 
+  text={
+    n_layers .. " layer(s) exported in " .. string.format("%.3f", timing.export) .. " seconds",
+  },
+  buttons="OK"
+}
