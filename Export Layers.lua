@@ -10,7 +10,6 @@ local frame = app.activeFrame or 1
 
 -- Timing variables
 local timing = {
-  saveAs = 0,
   export = 0
 }
 
@@ -48,6 +47,12 @@ end
 -- Export a single non-group layer by creating a new image from its cel.
 local n_layers = 0
 local function exportLayer(layer, currentPath, frame, options)
+  -- Skip layers that start with the ignore character if it's set
+  if options.ignoreChar and options.ignoreChar ~= "" and 
+     layer.name:sub(1,1) == options.ignoreChar then
+    return
+  end
+  
   local cel = layer:cel(frame)
   if not cel then 
     return 
@@ -66,7 +71,7 @@ local function exportLayer(layer, currentPath, frame, options)
         cel.image,
         -bbox.x, -bbox.y  -- shift so that bbox.x,y becomes (0,0)
       )
-      timeOperation("saveAs", function() trimmed:saveAs(fileName) end)
+      trimmed:saveAs(fileName)
       n_layers = n_layers + 1
       return
     end
@@ -81,7 +86,7 @@ local function exportLayer(layer, currentPath, frame, options)
     cel.position.x, cel.position.y,
     { blendMode = layer.blendMode, opacity = layer.opacity / 255.0 }
   )
-  timeOperation("saveAs", function() new_image:saveAs(fileName) end)
+  new_image:saveAs(fileName)
   n_layers = n_layers + 1
 end
 
@@ -89,7 +94,11 @@ end
 -- For group layers, create a subfolder and export its child layers into that folder.
 local function exportLayers(layerContainer, currentPath, frame, options)
   for _, layer in ipairs(layerContainer.layers) do
-    if layer.isGroup then
+    -- Skip layers that start with the ignore character if it's set
+    if options.ignoreChar and options.ignoreChar ~= "" and 
+       layer.name:sub(1,1) == options.ignoreChar then
+      -- Skip this layer
+    elseif layer.isGroup then
       local newPath = currentPath .. Sep .. layer.name
       app.fs.makeAllDirectories(newPath)
       exportLayers(layer, newPath, frame, options)
@@ -121,6 +130,12 @@ dlg:check{
   label = "Create subfolders for groups",
   selected = true,
 }
+dlg:combobox{
+  id = "ignoreChar",
+  label = "Ignore layers starting with:",
+  option = "_",
+  options = {"", "_", "~", "#", "!"},
+}
 dlg:button{
   id = "ok",
   text = "Export",
@@ -137,7 +152,8 @@ end
 
 local options = {
   trim = dlg.data.trim,
-  includeGroup = dlg.data.include_group,  -- (Currently always used to create subfolders.)
+  includeGroup = dlg.data.include_group,
+  ignoreChar = dlg.data.ignoreChar,  -- Add the ignore character option
 }
 
 local selected_path = dlg.data.output
