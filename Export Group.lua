@@ -21,16 +21,33 @@ local function flatten_group(group, frame, image)
     end
 end
 
--- Function to collect groups at a specific depth
-local function collectGroupsAtDepth(layers, currentDepth, targetDepth, groups)
+-- Function to get the full path of a group including parent groups
+local function getGroupPath(group)
+    local path = {}
+    local current = group
+    
+    while current and current.parent do
+        table.insert(path, 1, current.name)
+        current = current.parent
+        if current.sprite then break end -- Stop when we reach the sprite level
+    end
+    
+    return table.concat(path, "/")
+end
+
+-- Function to collect groups at a specific depth with their paths
+local function collectGroupsAtDepth(layers, currentDepth, targetDepth, groups, parentPath)
     groups = groups or {}
+    parentPath = parentPath or ""
     
     for _, layer in ipairs(layers) do
         if layer.isGroup then
+            local currentPath = parentPath == "" and layer.name or (parentPath .. "/" .. layer.name)
+            
             if currentDepth == targetDepth then
-                table.insert(groups, layer)
+                table.insert(groups, {group = layer, path = parentPath})
             elseif currentDepth < targetDepth then
-                collectGroupsAtDepth(layer.layers, currentDepth + 1, targetDepth, groups)
+                collectGroupsAtDepth(layer.layers, currentDepth + 1, targetDepth, groups, currentPath)
             end
         end
     end
@@ -39,12 +56,23 @@ local function collectGroupsAtDepth(layers, currentDepth, targetDepth, groups)
 end
 
 -- Function to export a group as a PNG
-local function exportGroup(group, output_dir, frame)
+local function exportGroup(group, output_dir, frame, groupPath, withGroupPath)
     local spr = group.sprite
     local new_image = Image(spr.width, spr.height, spr.colorMode)
     flatten_group(group, frame, new_image)
-    local filename = output_dir .. group.name .. ".png"
+    
+    local filename
+    if withGroupPath and groupPath ~= "" then
+        -- Create subdirectory if needed
+        local subdir = output_dir .. groupPath .. Sep
+        app.fs.makeAllDirectories(subdir)
+        filename = subdir .. group.name .. ".png"
+    else
+        filename = output_dir .. group.name .. ".png"
+    end
+    
     new_image:saveAs(filename)
+    return filename
 end
 
 -- Main function to handle the export process
@@ -67,6 +95,12 @@ local function main()
         label = "Depth:",
         text = "2",
         decimals = 0
+    }
+    
+    dlg:check{
+        id = "withGroupPath",
+        label = "With Group Path",
+        selected = true
     }
     
     dlg:separator()
@@ -100,6 +134,8 @@ local function main()
     end
 
     local depth = dlg.data.depth or 2
+    local withGroupPath = dlg.data.withGroupPath or false
+    
     if depth < 1 then
         app.alert("Depth must be at least 1")
         return
@@ -127,14 +163,25 @@ local function main()
 
     -- Build list of groups that will be exported
     local group_names = {}
-    for _, group in ipairs(groups_to_export) do
-        table.insert(group_names, group.name .. ".png")
+    local exported_files = {}
+    for _, groupData in ipairs(groups_to_export) do
+        local group = groupData.group
+        local groupPath = groupData.path
+        
+        if withGroupPath and groupPath ~= "" then
+            table.insert(group_names, groupPath .. "/" .. group.name .. ".png")
+        else
+            table.insert(group_names, group.name .. ".png")
+        end
     end
 
     -- Export each group
     local startExportTime = os.clock()
-    for _, group in ipairs(groups_to_export) do
-        exportGroup(group, output_dir, frame)
+    for _, groupData in ipairs(groups_to_export) do
+        local group = groupData.group
+        local groupPath = groupData.path
+        local filename = exportGroup(group, output_dir, frame, groupPath, withGroupPath)
+        table.insert(exported_files, filename)
     end
     local exportTime = os.clock() - startExportTime
 
