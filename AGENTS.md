@@ -1,13 +1,10 @@
 # Agent Guidelines for Aseprite Python Project
 
-## Commands
-- **Run project**: `uv run main.py` or `python main.py`
-- **Install dependencies**: `uv install` or `pip install -e .`
 - **No tests configured** - this is a simple file watcher utility
 
 ## Code Style
 - **Python version**: 3.13+
-- **Package manager**: uv (preferred) or pip
+- **Package manager**: uv
 - **Imports**: Standard library first, then third-party (watchdog), group with blank lines
 - **Classes**: PascalCase (e.g., `LuaFileHandler`)
 - **Functions/variables**: snake_case (e.g., `dest_dir`, `on_modified`)

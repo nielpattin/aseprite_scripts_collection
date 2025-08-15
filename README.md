@@ -1,17 +1,28 @@
-### Create a Virtual Environment
+# Aseprite Lua Script Development Environment
+
+A file watcher that automatically copies `.lua` files to Aseprite's scripts folder for hot-reloading during development.
+
+## Quick Start
+
+### Install Dependencies
+```bash
+uv install
 ```
-python -m venv .env
+
+### Run the File Watcher
+```bash
+uv run main.py
 ```
 
-### Activate the Virtual Environment
+The watcher will:
+- Copy all existing `.lua` files to Aseprite's scripts folder on startup
+- Monitor for changes and automatically copy updated files
+- Display timestamps for each copy operation
 
-```
-.env\Scripts\activate
-```
+## Included Aseprite Scripts
 
-### Install Watchdog
-pip install watchdog
-
-### Deactivate the Virtual Environment
-
-deactivate
+- **Export Group.lua** - Export groups at specific depths with optional parent path structure
+- **Export Layers.lua** - Export individual layers with trimming and grouping options
+- **Export Slices.lua** - Export sprite slices with management tools
+- **Export Tags To Different Sprite Sheets.lua** - Export animation tags as separate sprite sheets
+- **Get Cel Distance.lua** - Utility for measuring cel distances
