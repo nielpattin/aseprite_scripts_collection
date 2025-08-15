@@ -21,6 +21,23 @@ local function flatten_group(group, frame, image)
     end
 end
 
+-- Function to collect groups at a specific depth
+local function collectGroupsAtDepth(layers, currentDepth, targetDepth, groups)
+    groups = groups or {}
+    
+    for _, layer in ipairs(layers) do
+        if layer.isGroup then
+            if currentDepth == targetDepth then
+                table.insert(groups, layer)
+            elseif currentDepth < targetDepth then
+                collectGroupsAtDepth(layer.layers, currentDepth + 1, targetDepth, groups)
+            end
+        end
+    end
+    
+    return groups
+end
+
 -- Function to export a group as a PNG
 local function exportGroup(group, output_dir, frame)
     local spr = group.sprite
@@ -28,7 +45,6 @@ local function exportGroup(group, output_dir, frame)
     flatten_group(group, frame, new_image)
     local filename = output_dir .. group.name .. ".png"
     new_image:saveAs(filename)
-    print("Saved " .. filename)
 end
 
 -- Main function to handle the export process
@@ -41,42 +57,28 @@ local function main()
     local spr = app.activeSprite
     local frame = app.activeFrame or 1
 
-    -- Collect all top-level groups
-    local top_groups = {}
-    for _, layer in ipairs(spr.layers) do
-        if layer.isGroup then
-            table.insert(top_groups, layer)
-        end
-    end
-
-    if #top_groups == 0 then
-        app.alert("No top-level groups found")
-        return
-    end
+    -- Create a dialog to get the depth and output location
+    local dlg = Dialog("Export Groups at Depth")
+    
+    dlg:label{ text = "Depth = 1: Top-level groups" }
+    
+    dlg:number{
+        id = "depth",
+        label = "Depth:",
+        text = "2",
+        decimals = 0
+    }
+    
+    dlg:separator()
 
     -- Determine the default directory
     local default_dir = spr.filename ~= "" and Dirname(spr.filename) or ""
     local default_filename
     if spr.filename ~= "" then
-        default_filename = spr.filename  -- Use the full path, e.g., "/path/to/my_sprite.aseprite"
+        default_filename = spr.filename
     else
-        default_filename = default_dir .. "untitled.aseprite"  -- Fallback for unsaved sprites
+        default_filename = default_dir .. "untitled.aseprite"
     end
-
-    -- Create a dialog to select the output location and show all groups
-    local dlg = Dialog("Export Top-Level Groups")
-
-    -- Inform the user what will be exported
-    dlg:label{ text = "The following groups will be exported as PNGs:" }
-
-    -- List all groups with their .png filenames
-    for _, group in ipairs(top_groups) do
-        local filename = group.name .. ".png"
-        dlg:label{ text = filename }
-    end
-
-    -- Add a separator for clarity
-    dlg:separator()
 
     -- File selection for the output directory
     dlg:file{
@@ -94,7 +96,12 @@ local function main()
     dlg:show()
 
     if not dlg.data.ok then
-        print("Export cancelled")
+        return
+    end
+
+    local depth = dlg.data.depth or 2
+    if depth < 1 then
+        app.alert("Depth must be at least 1")
         return
     end
 
@@ -110,12 +117,43 @@ local function main()
         return
     end
 
-    -- Export each group with the full path displayed in the console
-    for _, group in ipairs(top_groups) do
-        exportGroup(group, output_dir, frame)
+    -- Collect groups at the specified depth
+    local groups_to_export = collectGroupsAtDepth(spr.layers, 1, depth)
+
+    if #groups_to_export == 0 then
+        app.alert("No groups found at depth " .. depth)
+        return
     end
 
-    print("Export complete")
+    -- Build list of groups that will be exported
+    local group_names = {}
+    for _, group in ipairs(groups_to_export) do
+        table.insert(group_names, group.name .. ".png")
+    end
+
+    -- Export each group
+    local startExportTime = os.clock()
+    for _, group in ipairs(groups_to_export) do
+        exportGroup(group, output_dir, frame)
+    end
+    local exportTime = os.clock() - startExportTime
+
+    -- Create detailed completion message
+    local message = {
+        "Found " .. #groups_to_export .. " groups at depth " .. depth .. ":",
+        "",
+    }
+    for _, name in ipairs(group_names) do
+        table.insert(message, "✓ " .. name)
+    end
+    table.insert(message, "")
+    table.insert(message, "Exported in " .. string.format("%.3f", exportTime) .. " seconds")
+
+    app.alert{
+        title="Export Complete", 
+        text=message,
+        buttons="OK"
+    }
 end
 
 -- Run the script
