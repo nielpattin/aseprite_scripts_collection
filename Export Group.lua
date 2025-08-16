@@ -21,6 +21,23 @@ local function flatten_group(group, frame, image)
     end
 end
 
+-- Function to calculate bounding box for trimming
+local function calculateBoundingBox(image)
+    local minX, minY, maxX, maxY = nil, nil, nil, nil
+    for y = 0, image.height - 1 do
+        for x = 0, image.width - 1 do
+            if image:getPixel(x, y) ~= 0 then
+                if not minX or x < minX then minX = x end
+                if not minY or y < minY then minY = y end
+                if not maxX or x > maxX then maxX = x end
+                if not maxY or y > maxY then maxY = y end
+            end
+        end
+    end
+    if not minX or not minY then return nil end
+    return { x = minX, y = minY, w = maxX - minX + 1, h = maxY - minY + 1 }
+end
+
 -- Function to get the full path of a group including parent groups
 local function getGroupPath(group)
     local path = {}
@@ -56,10 +73,21 @@ local function collectGroupsAtDepth(layers, currentDepth, targetDepth, groups, p
 end
 
 -- Function to export a group as a PNG
-local function exportGroup(group, output_dir, frame, groupPath, withGroupPath)
+local function exportGroup(group, output_dir, frame, groupPath, withGroupPath, trim)
     local spr = group.sprite
     local new_image = Image(spr.width, spr.height, spr.colorMode)
     flatten_group(group, frame, new_image)
+    
+    -- Apply trimming if enabled
+    if trim then
+        local bbox = calculateBoundingBox(new_image)
+        if bbox then
+            local trimmed = Image(bbox.w, bbox.h, new_image.colorMode)
+            trimmed:clear(0)
+            trimmed:drawImage(new_image, -bbox.x, -bbox.y)
+            new_image = trimmed
+        end
+    end
     
     local filename
     if withGroupPath and groupPath ~= "" then
@@ -103,6 +131,12 @@ local function main()
         selected = true
     }
     
+    dlg:check{
+        id = "trim",
+        label = "Trim",
+        selected = true
+    }
+    
     dlg:separator()
 
     -- Determine the default directory
@@ -135,6 +169,7 @@ local function main()
 
     local depth = dlg.data.depth or 2
     local withGroupPath = dlg.data.withGroupPath or false
+    local trim = dlg.data.trim or false
     
     if depth < 1 then
         app.alert("Depth must be at least 1")
@@ -180,7 +215,7 @@ local function main()
     for _, groupData in ipairs(groups_to_export) do
         local group = groupData.group
         local groupPath = groupData.path
-        local filename = exportGroup(group, output_dir, frame, groupPath, withGroupPath)
+        local filename = exportGroup(group, output_dir, frame, groupPath, withGroupPath, trim)
         table.insert(exported_files, filename)
     end
     local exportTime = os.clock() - startExportTime
