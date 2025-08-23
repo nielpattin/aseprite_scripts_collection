@@ -4,12 +4,12 @@ A file watcher that automatically copies `.lua` files to Aseprite's scripts fold
 
 ## Quick Start
 
-### Install Dependencies
-```bash
-uv install
-```
+### Install uv
+
+https://docs.astral.sh/uv/getting-started/installation/
 
 ### Run the File Watcher
+- This also installs the required dependencies.
 ```bash
 uv run main.py
 ```

@@ -12,28 +12,42 @@ logging.getLogger('watchdog').setLevel(logging.WARNING)
 class LuaFileHandler(FileSystemEventHandler):
     def __init__(self, dest_dir):
         self.dest_dir = dest_dir
-        
+        self.last_modified = {}
+        self.last_copy_time = {}
+
     def on_modified(self, event):
         if event.is_directory:
             return
-            
+
         if event.src_path.endswith('.lua'):
             file_name = os.path.basename(event.src_path)
+            current_time = time.time()
+
+            # Debounce: ignore if copied within last 0.5 seconds
+            if file_name in self.last_copy_time and current_time - self.last_copy_time[file_name] < 0.5:
+                return
+
             try:
+                src_mtime = os.path.getmtime(event.src_path)
+                if file_name in self.last_modified and self.last_modified[file_name] >= src_mtime:
+                    return
+
                 dest_path = os.path.join(self.dest_dir, file_name)
-                
-                time.sleep(0.1)
-                
+
+                time.sleep(0.2)
+
                 shutil.copy2(event.src_path, dest_path)
-                print(f"{time.strftime('%H:%M:%S')} - Copied: {file_name}")
-                
+                self.last_modified[file_name] = src_mtime
+                self.last_copy_time[file_name] = current_time
+                print(f"{time.strftime('%H:%M:%S')} - Copied: {file_name} - to {dest_path}")
+
             except Exception as e:
                 pass
 
 def main():
     source_dir = os.path.dirname(os.path.abspath(__file__))
     
-    dest_dir = "/mnt/c/Users/neil/AppData/Roaming/Aseprite/scripts"
+    dest_dir = os.path.join(os.path.expanduser('~'), '.config', 'aseprite', 'scripts')
     
     if not os.path.exists(dest_dir):
         os.makedirs(dest_dir)
