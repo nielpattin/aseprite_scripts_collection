@@ -51,6 +51,7 @@ def main():
     
     if not os.path.exists(dest_dir):
         os.makedirs(dest_dir)
+    print(f"{time.strftime('%H:%M:%S')} - Started: watching {source_dir} -> {dest_dir}")
     
     lua_files = glob.glob(os.path.join(source_dir, "*.lua"))
     for file_path in lua_files:
@@ -58,6 +59,7 @@ def main():
             file_name = os.path.basename(file_path)
             dest_path = os.path.join(dest_dir, file_name)
             shutil.copy2(file_path, dest_path)
+            print(f"{time.strftime('%H:%M:%S')} - Copied: {file_name} - to {dest_path}")
         except Exception as e:
             pass
     

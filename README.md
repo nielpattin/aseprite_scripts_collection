@@ -8,6 +8,12 @@ A file watcher that automatically copies `.lua` files to Aseprite's scripts fold
 
 https://docs.astral.sh/uv/getting-started/installation/
 
+### Install Dependencies
+
+```bash
+uv sync
+```
+
 ### Run the File Watcher
 - This also installs the required dependencies.
 ```bash
