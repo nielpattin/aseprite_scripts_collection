@@ -3,6 +3,7 @@ import os
 import glob
 import time
 import logging
+import platform
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
@@ -47,7 +48,10 @@ class LuaFileHandler(FileSystemEventHandler):
 def main():
     source_dir = os.path.dirname(os.path.abspath(__file__))
     
-    dest_dir = os.path.join(os.path.expanduser('~'), '.config', 'aseprite', 'scripts')
+    if platform.system() == 'Windows':
+        dest_dir = os.path.join(os.path.expanduser('~'), 'AppData', 'Roaming', 'Aseprite', 'scripts')
+    else:
+        dest_dir = os.path.join(os.path.expanduser('~'), '.config', 'aseprite', 'scripts')
     
     if not os.path.exists(dest_dir):
         os.makedirs(dest_dir)
