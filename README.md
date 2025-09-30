@@ -14,6 +14,13 @@ https://docs.astral.sh/uv/getting-started/installation/
 uv sync
 ```
 
+
+### Active the Virtual Environment
+```bash
+.venv\Scripts\activate
+```
+The virtual environment must be active to run scripts and commands in the project without uv run. Virtual environment activation differs per shell and platform.
+
 ### Run the File Watcher
 - This also installs the required dependencies.
 ```bash
